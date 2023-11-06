@@ -6,7 +6,7 @@ public class DbConnection : IDbConnection
 {
     private readonly IConfiguration _config;
     private readonly IMongoDatabase _db;
-    private string _connectionId = "MongoDB";
+    private readonly string _connectionId = "MongoDB";
     public string DbName { get; private set; }
     public string CategoryCollectionName { get; private set; } = "categories";
     public string StatusCollectionName { get; private set; } = "statuses";
@@ -14,7 +14,6 @@ public class DbConnection : IDbConnection
     public string SuggestionCollectionName { get; private set; } = "suggestions";
 
     public MongoClient Client { get; private set; }
-    //connections to collections
     public IMongoCollection<CategoryModel> CategoryCollection { get; private set; }
     public IMongoCollection<StatusModel> StatusCollection { get; private set; }
     public IMongoCollection<UserModel> UserCollection { get; private set; }
@@ -24,10 +23,10 @@ public class DbConnection : IDbConnection
     {
         _config = config;
         //create new client
-        Client = new MongoClient(_config.GetConnectionString(_connectionId));
+        Client = new (_config.GetConnectionString(_connectionId));
         //connection to db
         DbName = _config["DatabaseName"];
-        _db.Client.GetDatabase(DbName);
+        _db = Client.GetDatabase(DbName);
 
         //connections to collections
         CategoryCollection = _db.GetCollection<CategoryModel>(CategoryCollectionName);
