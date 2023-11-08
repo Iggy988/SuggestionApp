@@ -1,8 +1,104 @@
 ﻿@page "/"
 
-<PageTitle>Index</PageTitle>
+@inject ICategoryData categoryData
+@inject IStatusData statusData
+@inject ISuggestionData suggestionData
+@inject IUserData userData
+@inject NavigationManager navManager
+@*//to store in session storage -when use forward and back trough pages to presserve data*@
+@inject ProtectedSessionStorage sessionStorege 
 
-<h1>Hello, world!</h1>
 
-Welcome to your new app.
 
+
+@code{
+    private List<SuggestionModel> suggestions;
+    private List<CategoryModel> categories;
+    private List<StatusModel> statuses;
+
+    private string selectedCategory = "All";
+    private string selectedStatus = "All";
+    private string searchText = "";
+    bool isSortedByNew = true;
+
+    protected async override Task OnInitializedAsync()
+    {
+        categories = await categoryData.GetAllCategories();
+        statuses = await statusData.GetAllStatuses();
+    }
+
+    //run after page is rendered
+    protected async override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadFilterState();
+            //it will take data from sessionStorage, it will not be available in OnInitializedAsync, we need to await to page render
+            // sessionStorage last as long as tab is open
+            await FilterSuggestions(); 
+            StateHasChanged(); //update page
+        }
+    }
+    private async Task LoadFilterState()
+    {
+        var stringResults = await sessionStorege.GetAsync<string>(nameof(selectedCategory));
+        //ako ne nadje nista stvice stringResults.Value
+        selectedCategory = stringResults.Success ? stringResults.Value : "All";
+
+        stringResults = await sessionStorege.GetAsync<string>(nameof(selectedStatus));
+        selectedStatus = stringResults.Success ? stringResults.Value : "All";
+
+        stringResults = await sessionStorege.GetAsync<string>(nameof(searchText));
+        searchText = stringResults.Success ? stringResults.Value : "";
+
+        var boolResults = await sessionStorege.GetAsync<bool>(nameof(isSortedByNew));
+        isSortedByNew = boolResults.Success ? boolResults.Value : true;
+    }
+
+    private async Task SaveFilterState()
+    {
+        // save by key-value
+        await sessionStorege.SetAsync(nameof(selectedCategory), selectedCategory);
+        await sessionStorege.SetAsync(nameof(selectedStatus), selectedStatus);
+        await sessionStorege.SetAsync(nameof(searchText), searchText);
+        await sessionStorege.SetAsync(nameof(isSortedByNew), isSortedByNew);
+    }
+
+    private async Task FilterSuggestions()
+    {
+        var output = await suggestionData.GetAllApprovedSuggestions();
+
+        if (selectedCategory != "All")
+        {
+            //filter list - find in output(category names which match)
+            output = output.Where(s => s.Category?.CategoryName == selectedCategory).ToList();
+        }
+        if (selectedStatus != "All")
+        {
+            output = output.Where(s => s.SuggestionStatus?.StatusName == selectedStatus).ToList();
+        }
+
+        if (string.IsNullOrWhiteSpace(searchText)== false)
+        {
+            // is suggestion contains this text(ignore case)
+            output = output.Where(s => 
+                s.Suggestion.Contains(searchText, StringComparison.InvariantCultureIgnoreCase) ||
+                s.Description.Contains(searchText, StringComparison.InvariantCultureIgnoreCase)
+            ).ToList();
+        }
+
+        if (isSortedByNew)
+        {
+            output = output.OrderByDescending(s => s.DateCreated).ToList();
+        }
+        else
+        {
+            output = output.OrderByDescending(s => s.UserVotes.Count)
+                            .ThenByDescending(s => s.DateCreated).ToList();
+        }
+
+        suggestions = output;
+
+        await SaveFilterState();
+    }
+}
