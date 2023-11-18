@@ -41,6 +41,20 @@ public class MongoSuggestionData : ISuggestionData
         return output.Where(x => x.ApprovedForRelease).ToList();
     }
 
+    public async Task<List<SuggestionModel>> GetUsersSuggestions(string userId)
+    {
+        var output = _cache.Get<List<SuggestionModel>>(userId);
+        if (output is null)
+        {
+            var results = await _suggestions.FindAsync(s => s.Author.Id == userId);
+            output = results.ToList();  
+
+            _cache.Set(userId, output, TimeSpan.FromMinutes(1));
+        }
+
+        return output;
+    }
+
     public async Task<SuggestionModel> GetSuggestion(string id)
     {
         var result = await _suggestions.FindAsync(s => s.Id == id);
