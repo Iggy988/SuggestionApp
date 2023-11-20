@@ -64,7 +64,7 @@ public class MongoSuggestionData : ISuggestionData
     public async Task<List<SuggestionModel>> GetAllSuggestionsWaitingForApproval()
     {
         var output = await GetAllSuggestions();
-        return output.Where(x => x.ApprovedForRelease == false && x.Rejected).ToList();
+        return output.Where(x => x.ApprovedForRelease == false && x.Rejected == false).ToList();
     }
 
     public async Task UpdateSuggestion(SuggestionModel suggestion)
